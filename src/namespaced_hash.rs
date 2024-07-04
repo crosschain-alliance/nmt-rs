@@ -15,6 +15,10 @@ pub const INTERNAL_NODE_DOMAIN_SEPARATOR: [u8; 1] = [1u8];
 /// A sha256 hasher which also supports namespacing
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+)]
 pub struct NamespacedSha2Hasher<const NS_ID_SIZE: usize> {
     ignore_max_ns: bool,
     _data: PhantomData<[u8; NS_ID_SIZE]>,
