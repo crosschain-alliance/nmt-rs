@@ -705,4 +705,27 @@ mod tests {
         test_namespace_verification_impl::<CELESTIA_NS_ID_SIZE>();
         test_namespace_verification_impl::<32>();
     }
+
+    #[test]
+    fn test_calculate_the_root_given_a_leaf_and_its_path() {
+        let new_namespace_num = 7;
+
+        let ns_ids = [1, 2, 3, 4, 5, 6, new_namespace_num];
+        let mut tree = DefaultNmt::new();
+        for (i, &ns_id) in ns_ids.as_ref().iter().enumerate() {
+            let data = format!("leaf_{i}");
+            tree.push_leaf(data.as_bytes(), ns_id_from_u64(ns_id))
+                .unwrap();
+        }
+
+        let namespace: NamespaceId<CELESTIA_NS_ID_SIZE> = ns_id_from_u64(new_namespace_num);
+        let range = tree.namespace_ranges.get(&namespace).unwrap().clone();
+        let proof = tree.build_range_proof(range);
+
+        let leaf = NamespacedSha2Hasher::default()
+            .hash_leaf_with_namespace(format!("leaf_6").as_bytes(), namespace);
+        let new_root = proof.root_from_range(&[leaf]).unwrap();
+        let simulated_root_with_full_tree = tree.root();
+        assert_eq!(new_root, simulated_root_with_full_tree)
+    }
 }

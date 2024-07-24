@@ -352,6 +352,34 @@ where
         Ok(self.hasher.hash_nodes(&left, &right))
     }
 
+    /// Returns the root given a range proof
+    pub fn root_from_range_proof(
+        &self,
+        leaves: &[M::Output],
+        proof: &[M::Output],
+        leaves_start_idx: usize,
+    ) -> Result<M::Output, RangeProofError> {
+        if proof.is_empty() && leaves.len() == 0 {
+            return Ok(M::EMPTY_ROOT);
+        }
+
+        let num_left_siblings = compute_num_left_siblings(leaves_start_idx);
+        let num_right_siblings = proof
+            .len()
+            .checked_sub(num_left_siblings)
+            .ok_or(RangeProofError::MissingProofNode)?;
+
+        let tree_size = compute_tree_size(num_right_siblings, leaves_start_idx + leaves.len() - 1)?;
+
+        self.check_range_proof_inner(
+            &mut &leaves[..],
+            &mut &proof[..],
+            leaves_start_idx,
+            tree_size,
+            0,
+        )
+    }
+
     /// Checks a given range proof
     pub fn check_range_proof(
         &self,

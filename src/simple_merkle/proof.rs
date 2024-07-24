@@ -60,6 +60,21 @@ where
 
 impl<M> Proof<M>
 where
+    M: MerkleHash + Default,
+{
+    /// Calculate the root given a range
+    pub fn root_from_range(&self, leaf_hashes: &[M::Output]) -> Result<M::Output, RangeProofError> {
+        if leaf_hashes.len() != self.range_len() {
+            return Err(RangeProofError::WrongAmountOfLeavesProvided);
+        }
+
+        let tree = MerkleTree::<NoopDb, M>::new();
+        tree.root_from_range_proof(leaf_hashes, self.siblings(), self.start_idx() as usize)
+    }
+}
+
+impl<M> Proof<M>
+where
     M: MerkleHash,
 {
     /// Verify a range proof
