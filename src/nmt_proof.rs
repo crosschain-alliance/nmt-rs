@@ -70,32 +70,29 @@ where
         raw_leaves: &[impl AsRef<[u8]>],
         leaf_namespace: NamespaceId<NS_ID_SIZE>,
     ) -> Result<(), RangeProofError> {
-        if self.is_of_absence() {
-            return Err(RangeProofError::MalformedProof(
-                "Cannot prove that a partial namespace is absent",
-            ));
-        };
-
-        if raw_leaves.len() != self.range_len() {
-            return Err(RangeProofError::WrongAmountOfLeavesProvided);
-        }
-
-        let leaf_hashes: Vec<_> = raw_leaves
-            .iter()
-            .map(|data| {
-                M::with_ignore_max_ns(self.ignores_max_ns())
-                    .hash_leaf_with_namespace(data.as_ref(), leaf_namespace)
-            })
-            .collect();
-        let tree = NamespaceMerkleTree::<NoopDb, M, NS_ID_SIZE>::with_hasher(
-            M::with_ignore_max_ns(self.ignores_max_ns()),
-        );
+        let (tree, leaf_hashes) = self
+            .get_range_tree_and_leaf_hashes(&raw_leaves, leaf_namespace)
+            .unwrap();
         tree.inner.check_range_proof(
             root,
             &leaf_hashes,
             self.siblings(),
             self.start_idx() as usize,
         )
+    }
+
+    /// Returns the root given a range proof
+    pub fn root_from_range(
+        &self,
+        raw_leaves: &[impl AsRef<[u8]>],
+        leaf_namespace: NamespaceId<NS_ID_SIZE>,
+    ) -> Result<NamespacedHash<NS_ID_SIZE>, RangeProofError> {
+        let (tree, leaf_hashes) = self
+            .get_range_tree_and_leaf_hashes(&raw_leaves, leaf_namespace)
+            .unwrap();
+
+        tree.inner
+            .root_from_range_proof(&leaf_hashes, self.siblings(), self.start_idx() as usize)
     }
 
     /// Convert a proof of the presence of some leaf to the proof of the absence of another leaf
@@ -181,5 +178,40 @@ where
     /// Returns true if the proof is a presence proof
     pub fn is_of_presence(&self) -> bool {
         !self.is_of_absence()
+    }
+
+    fn get_range_tree_and_leaf_hashes(
+        &self,
+        raw_leaves: &[impl AsRef<[u8]>],
+        leaf_namespace: NamespaceId<NS_ID_SIZE>,
+    ) -> Result<
+        (
+            NamespaceMerkleTree<NoopDb, M, NS_ID_SIZE>,
+            Vec<NamespacedHash<NS_ID_SIZE>>,
+        ),
+        RangeProofError,
+    > {
+        if self.is_of_absence() {
+            return Err(RangeProofError::MalformedProof(
+                "Cannot prove that a partial namespace is absent",
+            ));
+        };
+
+        if raw_leaves.len() != self.range_len() {
+            return Err(RangeProofError::WrongAmountOfLeavesProvided);
+        }
+
+        let leaf_hashes: Vec<_> = raw_leaves
+            .iter()
+            .map(|data| {
+                M::with_ignore_max_ns(self.ignores_max_ns())
+                    .hash_leaf_with_namespace(data.as_ref(), leaf_namespace)
+            })
+            .collect();
+        let tree = NamespaceMerkleTree::<NoopDb, M, NS_ID_SIZE>::with_hasher(
+            M::with_ignore_max_ns(self.ignores_max_ns()),
+        );
+
+        Ok((tree, leaf_hashes))
     }
 }
